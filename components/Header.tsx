@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const Header: React.FC = () => {
@@ -31,10 +30,6 @@ export const Header: React.FC = () => {
                         src="/book-cover.jpg" 
                         alt="Four Thousand Weeks by Oliver Burkeman" 
                         className="w-32 sm:w-36 rounded shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1"
-                        onError={(e) => {
-                            // Fallback if local image isn't found yet
-                            e.currentTarget.src = "https://m.media-amazon.com/images/I/8125+5E4wLL._SL1500_.jpg";
-                        }}
                     />
                 </a>
                 <p className="text-sm italic max-w-sm theme-text-muted leading-relaxed">
