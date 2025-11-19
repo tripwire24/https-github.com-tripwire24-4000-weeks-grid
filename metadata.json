@@ -1,0 +1,5 @@
+{
+  "name": "4,000 Weeks Life Grid",
+  "description": "A single-page web app to visualize your life in weeks. Enter your Date of Birth and instantly see a grid of your life: past weeks filled, current week highlighted, and future weeks faded. Helps you reckon with time and focus on what matters.",
+  "requestFramePermissions": []
+}
