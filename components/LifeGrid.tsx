@@ -70,9 +70,10 @@ const Tooltip: React.FC<{ data: TooltipData; dob: Date; gridRef: React.RefObject
 const WeekSquare: React.FC<{
     status: 'past' | 'present' | 'future';
     isMilestone: boolean;
+    isHighlighted: boolean;
     onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => void;
     onClick: () => void;
-}> = React.memo(({ status, isMilestone, onMouseEnter, onClick }) => {
+}> = React.memo(({ status, isMilestone, isHighlighted, onMouseEnter, onClick }) => {
     let classes = "w-full h-full rounded-[1px] sm:rounded-[2px] transition-all duration-300 relative ";
     let milestoneDotClasses = "absolute inset-0 flex items-center justify-center text-[var(--milestone-dot)] transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)";
     
@@ -82,7 +83,6 @@ const WeekSquare: React.FC<{
             break;
         case 'present':
             classes += "theme-week-present ring-2 ring-offset-1 ring-offset-[var(--bg-card)] ring-[var(--week-present)] animate-pulse z-10";
-            // For present, make the dot white or contrasting
             milestoneDotClasses = "absolute inset-0 flex items-center justify-center text-white transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)";
             break;
         case 'future':
@@ -90,16 +90,20 @@ const WeekSquare: React.FC<{
             break;
     }
 
-    // Ensure milestone squares pop to the top when hovered
+    // Ensure milestone squares pop to the top when hovered or highlighted
     if (isMilestone) {
         classes += " group-hover:z-20";
+    }
+
+    if (isHighlighted) {
+        classes += " ring-4 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg-card)] z-30 scale-150 shadow-lg";
     }
 
     return (
         <div className="aspect-square p-[1px] group cursor-pointer" onMouseEnter={onMouseEnter} onClick={onClick}>
              <div className={classes}>
                 {isMilestone && (
-                    <div className={`${milestoneDotClasses} group-hover:scale-125`}>
+                    <div className={`${milestoneDotClasses} group-hover:scale-125 ${isHighlighted ? 'scale-125' : ''}`}>
                        <svg className="w-full h-full animate-milestone-pop" fill="currentColor" viewBox="0 0 8 8">
                           <circle cx="4" cy="4" r="3" />
                         </svg>
@@ -123,6 +127,7 @@ interface LifeGridProps {
 
 export const LifeGrid: React.FC<LifeGridProps> = ({ totalWeeks, weeksLived, currentWeekIndex, milestoneWeeks, zoom, dob, onWeekClick }) => {
     const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+    const [highlightedMilestone, setHighlightedMilestone] = useState<Milestone | null>(null);
     const gridRef = React.useRef<HTMLDivElement>(null);
     const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -162,16 +167,29 @@ export const LifeGrid: React.FC<LifeGridProps> = ({ totalWeeks, weeksLived, curr
         }, 100);
     }, []);
 
+    const toggleMilestoneHighlight = (milestone: Milestone) => {
+        if (highlightedMilestone && highlightedMilestone.name === milestone.name) {
+            setHighlightedMilestone(null);
+        } else {
+            setHighlightedMilestone(milestone);
+        }
+    };
+
     // Create array of weeks
     const weeks = [];
     for (let i = 0; i < totalWeeks; i++) {
         const status = i < weeksLived ? 'past' : (i === currentWeekIndex ? 'present' : 'future');
-        const isMilestone = milestoneWeeks.has(i);
+        const milestone = milestoneWeeks.get(i);
+        const isMilestone = !!milestone;
+        // Highlight if this week's milestone matches the currently selected one
+        const isHighlighted = !!(highlightedMilestone && milestone && milestone.name === highlightedMilestone.name);
+        
         weeks.push(
             <WeekSquare
                 key={i}
                 status={status}
                 isMilestone={isMilestone}
+                isHighlighted={isHighlighted}
                 onMouseEnter={(e) => handleMouseEnter(e, i)}
                 onClick={() => onWeekClick?.(i)}
             />
@@ -183,11 +201,11 @@ export const LifeGrid: React.FC<LifeGridProps> = ({ totalWeeks, weeksLived, curr
              <style>{`
                 @keyframes milestonePop {
                     0% { transform: scale(0); opacity: 0; }
-                    50% { transform: scale(1.4); opacity: 1; }
+                    60% { transform: scale(1.5); opacity: 1; }
                     100% { transform: scale(1); opacity: 1; }
                 }
                 .animate-milestone-pop {
-                    animation: milestonePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+                    animation: milestonePop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
                 }
             `}</style>
             <div className="flex flex-col sm:flex-row gap-1 sm:gap-4">
@@ -206,7 +224,11 @@ export const LifeGrid: React.FC<LifeGridProps> = ({ totalWeeks, weeksLived, curr
                 </div>
 
                 {/* The Grid */}
-                <div className="flex-grow overflow-x-hidden">
+                <div className="flex-grow overflow-x-hidden relative">
+                     {/* Dim overlay when a milestone is highlighted */}
+                     {highlightedMilestone && (
+                         <div className="absolute inset-0 z-10 bg-[var(--bg-card)] bg-opacity-30 backdrop-blur-[1px] transition-all pointer-events-none"></div>
+                     )}
                      <div
                         ref={gridRef}
                         className="grid transition-transform duration-300 origin-top-left"
@@ -226,23 +248,30 @@ export const LifeGrid: React.FC<LifeGridProps> = ({ totalWeeks, weeksLived, curr
             
              {milestoneWeeks.size > 0 && (
                 <div className="mt-6 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                    <h3 className="text-sm font-semibold theme-text-muted mb-3">Milestone Legend:</h3>
+                    <h3 className="text-sm font-semibold theme-text-muted mb-3">Milestones (Click to locate):</h3>
                     <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
                         {Array.from(milestoneWeeks.values())
-                            .reduce<Milestone[]>((unique: Milestone[], item: Milestone) => {
+                            .reduce<Milestone[]>((unique, item) => {
                                 return unique.find(u => u.name === item.name) ? unique : [...unique, item];
                             }, [])
-                            .map(m => (
-                            <div key={m.id || m.name} className="flex items-center gap-2">
-                                 <div className="relative w-3 h-3">
-                                    <div className={`absolute inset-0 rounded-sm ${m.value && m.value > (currentWeekIndex/52) ? 'theme-week-future' : 'theme-week-past'}`}></div>
-                                    <svg className={`absolute inset-0 w-full h-full text-[var(--milestone-dot)] animate-milestone-pop`} fill="currentColor" viewBox="0 0 8 8">
-                                        <circle cx="4" cy="4" r="3" />
-                                    </svg>
-                                 </div>
-                                <span className="theme-text-muted">{m.name}</span>
-                            </div>
-                        ))}
+                            .map((m: Milestone) => {
+                                const isHighlighted = highlightedMilestone?.name === m.name;
+                                return (
+                                    <button 
+                                        key={m.id || m.name} 
+                                        onClick={() => toggleMilestoneHighlight(m)}
+                                        className={`flex items-center gap-2 p-1 rounded transition-all ${isHighlighted ? 'bg-[var(--week-future)] ring-2 ring-[var(--accent)]' : 'hover:bg-gray-100'}`}
+                                    >
+                                        <div className="relative w-3 h-3">
+                                            <div className={`absolute inset-0 rounded-sm ${m.value && m.value > (currentWeekIndex/52) ? 'theme-week-future' : 'theme-week-past'}`}></div>
+                                            <svg className={`absolute inset-0 w-full h-full text-[var(--milestone-dot)] animate-milestone-pop`} fill="currentColor" viewBox="0 0 8 8">
+                                                <circle cx="4" cy="4" r="3" />
+                                            </svg>
+                                        </div>
+                                        <span className={`theme-text-muted ${isHighlighted ? 'font-bold text-[var(--text-main)]' : ''}`}>{m.name}</span>
+                                    </button>
+                                );
+                            })}
                     </div>
                 </div>
             )}

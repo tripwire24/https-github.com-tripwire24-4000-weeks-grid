@@ -112,7 +112,9 @@ const App: React.FC = () => {
     const [showMilestones, setShowMilestones] = useState<boolean>(true);
     const [customMilestones, setCustomMilestones] = useState<Milestone[]>([]);
     const [notification, setNotification] = useState<string | null>(null);
-    const [currentTheme, setCurrentTheme] = useState<ThemeKey>('classic');
+    
+    // Use single theme
+    const currentTheme: ThemeKey = 'burkeman';
 
     // Milestone Modal State
     const [isMilestoneModalOpen, setIsMilestoneModalOpen] = useState(false);
@@ -128,7 +130,6 @@ const App: React.FC = () => {
         
         const savedDob = localStorage.getItem('life-grid-dob');
         const savedMilestones = localStorage.getItem('life-grid-custom-milestones');
-        const savedTheme = localStorage.getItem('life-grid-theme');
 
         if (dobParam) {
             setDob(dobParam);
@@ -142,11 +143,13 @@ const App: React.FC = () => {
             try {
                 const parsed = JSON.parse(savedMilestones);
                 if (Array.isArray(parsed)) {
-                    // Ensure IDs exist to prevent list key errors
-                    const validMilestones = parsed.map((m: any) => ({
-                        ...m,
-                        id: m.id || Math.random().toString(36).substr(2, 9)
-                    }));
+                    // Ensure items are objects and have IDs to prevent list key errors
+                    const validMilestones = parsed
+                        .filter((m: any) => m && typeof m === 'object')
+                        .map((m: any) => ({
+                            ...m,
+                            id: m.id || Math.random().toString(36).substr(2, 9)
+                        }));
                     setCustomMilestones(validMilestones);
                 }
             } catch (e) {
@@ -154,10 +157,6 @@ const App: React.FC = () => {
                 // Optionally clear bad data
                 localStorage.removeItem('life-grid-custom-milestones');
             }
-        }
-        
-        if (savedTheme && (THEMES as any)[savedTheme]) {
-            setCurrentTheme(savedTheme as ThemeKey);
         }
     }, []);
 
@@ -172,11 +171,6 @@ const App: React.FC = () => {
     useEffect(() => {
         localStorage.setItem('life-grid-custom-milestones', JSON.stringify(customMilestones));
     }, [customMilestones]);
-
-    // Save theme
-    useEffect(() => {
-        localStorage.setItem('life-grid-theme', currentTheme);
-    }, [currentTheme]);
 
     const dobDate = useMemo(() => {
         if (!dob) return null;
@@ -258,10 +252,8 @@ const App: React.FC = () => {
         setZoom(1);
         setShowMilestones(true);
         setCustomMilestones([]);
-        setCurrentTheme('classic');
         localStorage.removeItem('life-grid-dob');
         localStorage.removeItem('life-grid-custom-milestones');
-        localStorage.removeItem('life-grid-theme');
         window.history.pushState({}, '', window.location.pathname);
         showNotification('View has been reset.');
     };
@@ -287,7 +279,7 @@ const App: React.FC = () => {
 
     // Construct CSS variables style block
     const themeStyles = useMemo(() => {
-        const theme = THEMES[currentTheme] || THEMES['classic'];
+        const theme = THEMES[currentTheme];
         // Safety fallback
         if (!theme) return '';
         const vars = Object.entries(theme.colors).map(([key, value]) => `${key}: ${value};`).join(' ');
@@ -333,28 +325,6 @@ const App: React.FC = () => {
 
             <div ref={appContainerRef} className="w-full max-w-7xl p-4 sm:p-6 rounded-xl shadow-lg transition-colors duration-300 theme-card">
                 <Header />
-
-                <div className="flex flex-wrap justify-center gap-2 mb-6">
-                  {Object.entries(THEMES).map(([key, theme]) => (
-                    <button
-                      key={key}
-                      onClick={() => setCurrentTheme(key as ThemeKey)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all border shadow-sm
-                        ${currentTheme === key 
-                          ? 'ring-2 ring-offset-2 ring-[var(--accent)] transform scale-105 opacity-100' 
-                          : 'opacity-70 hover:opacity-100 hover:scale-105'
-                        }
-                      `}
-                      style={{
-                        backgroundColor: theme.colors['--week-past'],
-                        color: theme.colors['--bg-card'],
-                        borderColor: theme.colors['--border-color']
-                      }}
-                    >
-                      {theme.label}
-                    </button>
-                  ))}
-                </div>
                 
                 {dob && (
                     <Controls
